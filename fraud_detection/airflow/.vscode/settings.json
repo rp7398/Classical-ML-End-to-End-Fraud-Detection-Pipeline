@@ -1,0 +1,7 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}\\airenv\\Scripts\\python.exe",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}\\airenv\\Lib\\site-packages"
+  ],
+  "python.languageServer": "Pylance"
+}

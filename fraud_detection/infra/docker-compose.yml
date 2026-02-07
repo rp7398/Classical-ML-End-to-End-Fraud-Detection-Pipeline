@@ -1,0 +1,173 @@
+# Combined docker-compose.yml (no top-level "version" to avoid deprecation warnings)
+services:
+  # -------------------------
+  # Postgres for MLflow backend
+  # -------------------------
+  postgres:
+    image: postgres:15
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:-mlflow}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-mlflow}"
+      POSTGRES_DB: "${POSTGRES_DB:-mlflowdb}"
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mlflow} -d ${POSTGRES_DB:-mlflowdb} || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      infra-net:
+        aliases:
+          - postgres   # <-- REQUIRED for Airflow DNS
+
+  # -------------------------
+  # MinIO for MLflow artifacts (S3-compatible)
+  # -------------------------
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    env_file: .env
+    environment:
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:-minioadmin}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:-minioadmin}"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - infra-net
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    env_file: .env
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        mc alias set local http://minio:9000 "${MINIO_ROOT_USER:-minioadmin}" "${MINIO_ROOT_PASSWORD:-minioadmin}"
+        mc mb --ignore-existing local/${MINIO_BUCKET:-mlflow-artifacts}
+        echo "minio bucket ready: ${MINIO_BUCKET:-mlflow-artifacts}"
+    restart: "no"
+    networks:
+      - infra-net
+
+  # -------------------------
+  # MLflow server
+  # -------------------------
+  mlflow:
+    build:
+      context: ./mlflow
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - minio
+    env_file: .env
+    ports:
+      - "5000:5000"
+    environment:
+      BACKEND_STORE_URI: "postgresql://${POSTGRES_USER:-mlflow}:${POSTGRES_PASSWORD:-mlflow}@postgres:5432/${POSTGRES_DB:-mlflowdb}"
+      ARTIFACT_ROOT: "s3://${MINIO_BUCKET:-mlflow-artifacts}/"
+      AWS_ACCESS_KEY_ID: "${MINIO_ROOT_USER:-minioadmin}"
+      AWS_SECRET_ACCESS_KEY: "${MINIO_ROOT_PASSWORD:-minioadmin}"
+      MLFLOW_S3_ENDPOINT_URL: "http://minio:9000"
+      NO_PROXY: "127.0.0.1,localhost,minio"
+    volumes:
+      - ./artifacts:/mlflow/artifacts
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:5000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    networks:
+      - infra-net
+
+  # -------------------------
+  # Zookeeper and Kafka
+  # -------------------------
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+    networks:
+      - infra-net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka-broker
+    depends_on:
+      - zookeeper
+    restart: unless-stopped
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://host.docker.internal:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - infra-net
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    container_name: kafka-ui
+    depends_on:
+      - kafka
+    restart: unless-stopped
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+    ports:
+      - "8080:8080"
+    networks:
+      - infra-net
+
+  # -------------------------
+  # Redis (FIXED)
+  # -------------------------
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    networks:
+      infra-net:
+        aliases:
+          - redis   # <-- REQUIRED for Airflow Celery broker
+
+volumes:
+  pgdata:
+  miniodata:
+  zookeeper_data:
+  kafka_data:
+
+networks:
+  infra-net:
+    external: true   # <-- CRITICAL FIX
