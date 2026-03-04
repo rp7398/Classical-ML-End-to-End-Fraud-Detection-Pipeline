@@ -26,11 +26,6 @@ def train_and_eval():
     main()
 
 
-
-
-
-
-
 def get_latest_run(filter_string):
     import mlflow
     mlflow.set_tracking_uri(MLFLOW_URI)

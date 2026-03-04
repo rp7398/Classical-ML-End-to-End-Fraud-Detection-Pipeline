@@ -135,14 +135,6 @@ def Build_preprocessor(
 
     return preprocessor_meta, transform
 
-
-
-
-
-
-
-
-
 def train_xgboost(
     x_train,
     y_train,
@@ -190,8 +182,6 @@ def train_xgboost(
     mlflow.sklearn.log_model(clf,artifact_path="sklearn_model")
 
     return metrics,clf
-
-
 
 
 def evaluate_preds(y_true,y_proba,y_pred):
