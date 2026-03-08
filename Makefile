@@ -65,5 +65,5 @@ airflow-down:
 
 up: install infra-up airflow-db airflow-up
 	@echo "System ready."
-
+	
 down: airflow-down infra-down

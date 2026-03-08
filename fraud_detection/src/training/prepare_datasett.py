@@ -11,7 +11,6 @@ fraud_bucket = 'fraud-bucket2'
 fraud_prefix = f"labels/{today_str}"
 
 def load_records_minio(bucket_name,prefix):
-
     s3 = boto3.client(
         "s3",
         endpoint_url="http://localhost:9000",

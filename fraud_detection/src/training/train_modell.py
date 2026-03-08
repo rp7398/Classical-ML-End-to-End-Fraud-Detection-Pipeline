@@ -21,7 +21,6 @@ from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 
-
 import joblib
 import mlflow
 
@@ -52,7 +51,6 @@ def split_x_y(df:pd.DataFrame):
     return x,y
 # def cast_to_str(df):
 #     return df.astype(str)
-
 
 def Build_preprocessor(
         X: pd.DataFrame,
