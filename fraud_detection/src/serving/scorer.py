@@ -14,19 +14,23 @@ from pydantic import BaseModel
 app = FastAPI(title="Fraud Detection Scorer")
 
 
-os.environ["AWS_ACCESS_KEY_ID"] = "minioadmin"
-os.environ["AWS_SECRET_ACCESS_KEY"] = "minioadmin"
-os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
-os.environ["MLFLOW_S3_ENDPOINT_URL"] = "http://localhost:9000"
+os.environ.setdefault("AWS_ACCESS_KEY_ID", "minioadmin")
+os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "minioadmin")
+os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
+os.environ.setdefault("MLFLOW_S3_ENDPOINT_URL", "http://localhost:9000")
 
 # ---------------------------------------------------------
 # Config
 # ---------------------------------------------------------
-MLFLOW_TRACKING_URI = "http://localhost:5000"
+MLFLOW_TRACKING_URI = os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000")
 EXPERIMENT_NAME = "fraud_detection_experiment"
 RUN_NAME = "xgboost_baseline"
 
-ARTIFACT_DIR = "C:/Fraud-Dectection-Pipeline/fraud_detection/models/"
+ARTIFACT_DIR = os.environ.get(
+    "FRAUD_MODELS_PATH",
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "models")
+)
+ARTIFACT_DIR = os.path.abspath(ARTIFACT_DIR)
 
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 

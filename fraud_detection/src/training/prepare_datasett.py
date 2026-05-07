@@ -57,6 +57,7 @@ def save_parquet(df,path):
     os.makedirs(os.path.dirname(path),exist_ok=True)
     df.to_parquet(path,index=False)
     print(f"Saved file to {path}")
+    
 
 
 # if __name__ == "__main__":
@@ -74,7 +75,11 @@ def save_parquet(df,path):
 
 
 def main():
-    path = "C:/Fraud-Dectection-Pipeline/fraud_detection/data/"
+    base = os.environ.get(
+        "FRAUD_DATA_PATH",
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "data")
+    )
+    path = os.path.abspath(base)
     fraud_df = load_records_minio(fraud_bucket, fraud_prefix)
     features_df = load_records_minio("feature-bucket2", f"labels/{today_str}")
 

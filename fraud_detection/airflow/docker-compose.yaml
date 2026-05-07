@@ -31,6 +31,15 @@ x-airflow-common: &airflow-common
     # ✅ ADDED (only change)
     PYTHONPATH: /app
 
+    # MLflow + MinIO for DAG tasks
+    MLFLOW_TRACKING_URI: "http://mlflow:5000"
+    MLFLOW_S3_ENDPOINT_URL: "http://minio:9000"
+    AWS_ACCESS_KEY_ID: "minioadmin"
+    AWS_SECRET_ACCESS_KEY: "minioadmin"
+    AWS_DEFAULT_REGION: "us-east-1"
+    FRAUD_DATA_PATH: "/app/fraud_detection/data"
+    FRAUD_MODELS_PATH: "/app/fraud_detection/models"
+
   volumes:
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs

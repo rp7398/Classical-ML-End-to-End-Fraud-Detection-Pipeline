@@ -53,8 +53,8 @@ infra-down:
 
 airflow-db:
 	docker exec -it infra-postgres-1 psql -U mlflow -d mlflowdb \
-		-c "CREATE DATABASE IF NOT EXISTS airflow;" \
-		-c "CREATE USER IF NOT EXISTS airflow WITH PASSWORD 'airflow';" \
+		-c "SELECT 'CREATE DATABASE airflow' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'airflow')\gexec" \
+		-c "DO \$\$BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'airflow') THEN CREATE USER airflow WITH PASSWORD 'airflow'; END IF; END\$\$;" \
 		-c "GRANT ALL PRIVILEGES ON DATABASE airflow TO airflow;"
 
 airflow-up:
@@ -62,6 +62,10 @@ airflow-up:
 
 airflow-down:
 	cd $(AIRFLOW_DIR) && $(DOCKER_COMPOSE) down
+
+network:
+	@docker network inspect $(NETWORK) >/dev/null 2>&1 || docker network create $(NETWORK)
+	@echo "Docker network '$(NETWORK)' is ready."
 
 up: install infra-up airflow-db airflow-up
 	@echo "System ready."

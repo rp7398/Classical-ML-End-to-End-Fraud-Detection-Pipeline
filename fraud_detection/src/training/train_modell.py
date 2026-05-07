@@ -170,13 +170,21 @@ def train_xgboost(
     metrics = evaluate_preds(y_val, pred_proba, pred)
 
 
-    joblib.dump(clf, "C:/Fraud-Dectection-Pipeline/fraud_detection/models/xgb_model.joblib")
-    mlflow.log_artifact("C:/Fraud-Dectection-Pipeline/fraud_detection/models/xgb_model.joblib",
-                        artifact_path="model")
+    models_dir = os.environ.get(
+        "FRAUD_MODELS_PATH",
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "models")
+    )
+    models_dir = os.path.abspath(models_dir)
+    os.makedirs(models_dir, exist_ok=True)
 
-    joblib.dump(preprocess_meta,"C:/Fraud-Dectection-Pipeline/fraud_detection/models/preprocess_meta.joblib")
-    mlflow.log_artifact("C:/Fraud-Dectection-Pipeline/fraud_detection/models/preprocess_meta.joblib",
-                        artifact_path="preprocess")
+    xgb_path = os.path.join(models_dir, "xgb_model.joblib")
+    meta_path = os.path.join(models_dir, "preprocess_meta.joblib")
+
+    joblib.dump(clf, xgb_path)
+    mlflow.log_artifact(xgb_path, artifact_path="model")
+
+    joblib.dump(preprocess_meta, meta_path)
+    mlflow.log_artifact(meta_path, artifact_path="preprocess")
     mlflow.sklearn.log_model(clf,artifact_path="sklearn_model")
 
     return metrics,clf
@@ -193,9 +201,15 @@ def main():
     import os
     os.environ["MLFLOW_ENABLE_MODEL_REGISTRY"] = "false"
 
-    fraud_path = 'C:/Fraud-Dectection-Pipeline/fraud_detection/data/fraud.parquet'
+    base_data = os.environ.get(
+        "FRAUD_DATA_PATH",
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "data")
+    )
+    base_data = os.path.abspath(base_data)
+
+    fraud_path = os.path.join(base_data, "fraud.parquet")
     fraud_df = pd.read_parquet(fraud_path)
-    features_path = 'C:/Fraud-Dectection-Pipeline/fraud_detection/data/features.parquet'
+    features_path = os.path.join(base_data, "features.parquet")
     features_df = pd.read_parquet(features_path)
 
     features_df = features_df.rename(columns={'ts':'label_ts'})
@@ -242,16 +256,16 @@ def main():
             "batch_size": 1024,
             "use_focal": 'store_true'
         }
-    mlflow.set_tracking_uri("http://localhost:5000")
+    mlflow_uri = os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000")
+    mlflow.set_tracking_uri(mlflow_uri)
     mlflow.set_experiment("fraud_detection_experiment")
-
 
     import os
 
-    os.environ["AWS_ACCESS_KEY_ID"] = "minioadmin"
-    os.environ["AWS_SECRET_ACCESS_KEY"] = "minioadmin"
-    os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
-    os.environ["MLFLOW_S3_ENDPOINT_URL"] = "http://localhost:9000"
+    os.environ.setdefault("AWS_ACCESS_KEY_ID", "minioadmin")
+    os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "minioadmin")
+    os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
+    os.environ.setdefault("MLFLOW_S3_ENDPOINT_URL", "http://localhost:9000")
 
 
 
@@ -260,8 +274,8 @@ def main():
         for k,v in metrics.items():
             mlflow.log_metric(k,v)
         eval_df = pd.DataFrame([metrics])
-        eval_df.to_csv('C:/Fraud-Dectection-Pipeline/fraud_detection/data/eval_metrics.csv',index=False)
-        mlflow.log_artifact('C:/Fraud-Dectection-Pipeline/fraud_detection/data/eval_metrics.csv',
+        eval_df.to_csv(os.path.join(base_data, "eval_metrics.csv"), index=False)
+        mlflow.log_artifact(os.path.join(base_data, "eval_metrics.csv"),
                             artifact_path='evaluation')
         y_proba = clf.predict_proba(x_val)[:,1]
         best_t,best_loss = find_best_threshold(y_val,y_proba,amount_val)
