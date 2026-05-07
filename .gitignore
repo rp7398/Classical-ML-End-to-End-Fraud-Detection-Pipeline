@@ -1,0 +1,32 @@
+# Logs
+logs/
+*.log
+**/*.log
+fraud_detection/airflow/logs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+pyvenv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Models & data artifacts
+fraud_detection/models/*.joblib
+fraud_detection/data/*.parquet
+fraud_detection/data/*.csv
+fraud_detection/infra/artifacts/
+
+# Env files
+.env
+*.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
